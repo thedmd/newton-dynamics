@@ -259,6 +259,10 @@ GLuint LoadImage(const char* const cacheName, const char* const buffer, int widt
 		// when texture area is large, bilinear filter the first mipmap
 		glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 
+        GLfloat fLargest;
+        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
+
 		// build our texture mipmaps
 		gluBuild2DMipmaps (GL_TEXTURE_2D, iComponents, iWidth, iHeight, eFormat, GL_UNSIGNED_BYTE, buffer);
 
