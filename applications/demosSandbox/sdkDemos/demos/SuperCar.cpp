@@ -1060,12 +1060,14 @@ class SuperCarVehicleControllerManager: public dCustomVehicleControllerManager
 
 	SuperCarVehicleControllerManager (NewtonWorld* const world, int materialsCount, int* const materialList)
 		:dCustomVehicleControllerManager (world, materialsCount, materialList)
-		,m_externalView(true)
+		,m_externalView(false)
 		,m_player (NULL) 
 		//,m_debugVehicle (NULL) 
 		,m_drawShematic(true)
 		,m_helpKey (true)
 		,m_nexVehicle (true)
+		,m_cameraOrigin (0.0f)
+		,m_cameraVelocity (0.0f)
 	{
 		// hook a callback for 2d help display
 		DemoEntityManager* const scene = (DemoEntityManager*) NewtonWorldGetUserData(world);
@@ -1327,8 +1329,8 @@ class SuperCarVehicleControllerManager: public dCustomVehicleControllerManager
 
 				// draw the odometer
 				x += gageSize;
-				//dFloat speed = dAbs(engine->GetSpeed()) * 3.6f / 340.0f;
-				dFloat speed = dAbs(engine->GetSpeed())  / engine->GetTopSpeed();
+				dFloat speed = dAbs(engine->GetSpeed()) * 3.6f / 340.0f;
+				//dFloat speed = dAbs(engine->GetSpeed())  / engine->GetTopSpeed();
 				int gear = engine->GetGear();
 				DrawGage(m_odometer, m_greenNeedle, speed, x, y, gageSize);
 				DrawGear(speed, x, y, m_player->m_gearMap[gear], gageSize);
@@ -1417,6 +1419,27 @@ class SuperCarVehicleControllerManager: public dCustomVehicleControllerManager
 		}
 	}
 
+    dVector SmoothDamp(dVector current, dVector target, dVector& currentVelocity, float smoothTime, float deltaTime, float maxSpeed)
+    {
+        smoothTime = dMax(0.0001f, smoothTime);
+        const auto  num = deltaTime * 2.0f / smoothTime;
+        const auto  d = 1.0f / (1.0f + num + 0.48f * num * num + 0.235f * num * num * num);
+        auto vector = current - target;
+        auto vector2 = target;
+        auto maxLength = maxSpeed * smoothTime;
+        auto l = dSqrt(vector.DotProduct3(vector));
+        vector = vector.Scale(dMin(l, maxLength) / l);
+        target = current - vector;
+        auto vector3 = (currentVelocity + vector.Scale(num)).Scale(deltaTime);
+        currentVelocity = (currentVelocity - vector3.Scale(num)).Scale(d);
+        auto vector4 = target + (vector + vector3).Scale(d);
+        if ((vector2 - current).DotProduct3(vector4 - vector2) > 0.0f)
+        {
+            vector4 = vector2;
+            currentVelocity = (vector4 - vector2).Scale(1.0f / deltaTime);
+        }
+        return vector4;
+    }
 
 	void UpdateCamera (SuperCarEntity* const player, dFloat timestep)
 	{
@@ -1433,12 +1456,16 @@ class SuperCarVehicleControllerManager: public dCustomVehicleControllerManager
 			camOrigin -= frontDir.Scale(VEHICLE_THIRD_PERSON_VIEW_DIST);
 //camOrigin = dVector (-7.0f, 3.0f, 0.0f, 0.0f);
 		} else {
-			dAssert (0);
-			//           camMatrix = camMatrix * playerMatrix;
-			//           camOrigin = playerMatrix.TransformVector(dVector(-0.8f, ARTICULATED_VEHICLE_CAMERA_EYEPOINT, 0.0f, 0.0f));
+            dFloat dist = 1.5;
+			//dAssert (0);
+			camMatrix = playerMatrix;
+			camOrigin = playerMatrix.TransformVector(dVector(-3.8f * dist, 1.5f * dist/*ARTICULATED_VEHICLE_CAMERA_EYEPOINT*/, 0.0f, 0.0f));
+            camMatrix = dMatrix(0.0f, 0.0f, -0.22f, dVector(0.0f, 0.0f, 0.0f)) * camMatrix;
+
+            m_cameraOrigin = SmoothDamp(m_cameraOrigin, camOrigin, m_cameraVelocity, 0.2f, timestep, FLT_MAX);
 		}
 
-		camera->SetNextMatrix (*scene, camMatrix, camOrigin);
+		camera->SetNextMatrix (*scene, camMatrix, m_cameraOrigin);
 	}
 
 
@@ -1552,6 +1579,8 @@ class SuperCarVehicleControllerManager: public dCustomVehicleControllerManager
 	DemoEntityManager::ButtonKey m_helpKey;
 	DemoEntityManager::ButtonKey m_nexVehicle;
 	void* m_engineSounds[16];
+	dVector m_cameraOrigin;
+    dVector m_cameraVelocity;
 };
 
 
