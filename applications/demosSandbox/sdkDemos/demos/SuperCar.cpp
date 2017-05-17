@@ -568,8 +568,9 @@ class SuperCarEntity: public DemoEntity
 		dCustomVehicleController::dSteeringController* const steering = m_controller->GetSteering();
 
 		// get the throttler input
-		dFloat joyPosX;
-		dFloat joyPosY;
+		dFloat joyPosX = 0.0f;
+		dFloat joyPosY = 0.0f;
+		dFloat joyPosZ = 0.0f;
 		int joyButtons;
 
 		int gear = engine ? engine->GetGear() : 0;
@@ -581,28 +582,50 @@ class SuperCarEntity: public DemoEntity
 		dFloat reverseGasPedal = 0.0f;
 		dFloat forwardGasPedal = 0.0f;
 		dFloat handBrakePedal = 0.0f;
-		
-		bool hasJopytick = mainWindow->GetJoytickPosition (joyPosX, joyPosY, joyButtons);
+		int gearUp = 0, gearDown = 0;
+
+		engineIgnitionKey = m_engineKeySwitch.UpdatePushButton(mainWindow, 'I');
+		engineDifferentialLock = m_engineDifferentialLock.UpdatePushButton(mainWindow, 'L');
+		automaticTransmission = m_automaticTransmission.UpdatePushButton (mainWindow, 0x0d);
+
+		bool hasJopytick = mainWindow->GetJoytickPosition (joyPosX, joyPosY, joyPosZ, joyButtons);
 		if (hasJopytick) {
-/*
+
+			dFloat deadzone = 4600.0f / 32768.0f;
+
+			if (dAbs(joyPosX) > deadzone) {
+				joyPosX = dClamp((dAbs(joyPosX) - deadzone) / (1.0f - deadzone), 0.0f, 1.0f) * dSign(joyPosX);
+			}
+			else {
+				joyPosX = 0.0f;
+			}
+
+			if (dAbs(joyPosZ) > deadzone) {
+				joyPosZ = dClamp((dAbs(joyPosZ) - deadzone) / (1.0f - deadzone), 0.0f, 1.0f) * dSign(joyPosZ);
+			}
+			else {
+				joyPosZ = 0.0f;
+			}
+
 			// apply a cubic attenuation to the joystick inputs
 			joyPosX = joyPosX * joyPosX * joyPosX;
 			joyPosY = joyPosY * joyPosY * joyPosY;
 
 			steeringVal = joyPosX;
-			brakePedal = (joyPosY < 0.0f) ? -joyPosY: 0.0f;
-			engineGasPedal = (joyPosY >= 0.0f) ? joyPosY: 0.0f;
+			reverseGasPedal = (joyPosZ < 0.0f) ? -joyPosZ: 0.0f;
+			forwardGasPedal = (joyPosZ >= 0.0f) ? joyPosZ: 0.0f;
 
-			gear += int (m_gearUpKey.UpdateTriggerJoystick(mainWindow, joyButtons & 2)) - int (m_gearDownKey.UpdateTriggerJoystick(mainWindow, joyButtons & 4));
+			gearUp   = int(m_gearUpKey.UpdateTriggerJoystick(mainWindow, joyButtons & 2));
+			gearDown = int(m_gearDownKey.UpdateTriggerJoystick(mainWindow, joyButtons & 4));
+			gear += gearUp - gearDown;
 			handBrakePedal = (joyButtons & 1) ? 1.0f : 0.0f;
-*/
+
 		} else {
 
-			engineIgnitionKey = m_engineKeySwitch.UpdatePushButton(mainWindow, 'I');
-			engineDifferentialLock = m_engineDifferentialLock.UpdatePushButton(mainWindow, 'L');
-			automaticTransmission = m_automaticTransmission.UpdatePushButton (mainWindow, 0x0d);
 			steeringVal = (dFloat(mainWindow->GetKeyState('D')) - dFloat(mainWindow->GetKeyState('A')));
-			gear += int(m_gearUpKey.UpdateTriggerButton(mainWindow, '.')) - int(m_gearDownKey.UpdateTriggerButton(mainWindow, ','));
+			gearUp   = int(m_gearUpKey.UpdateTriggerButton(mainWindow, '.'));
+			gearDown = int(m_gearDownKey.UpdateTriggerButton(mainWindow, ','));
+			gear += gearUp - gearDown;
 
 			if (mainWindow->GetKeyState ('W')) {
 				forwardGasPedal = 1.0f;
@@ -658,6 +681,9 @@ class SuperCarEntity: public DemoEntity
 		}
 		if (engine) {
 			engine->SetDifferentialLock (engineDifferentialLock ? true : false);
+
+			if (gearUp || gearDown)
+				engine->SetGear(gear);
 	
 			switch (m_drivingState)
 			{
