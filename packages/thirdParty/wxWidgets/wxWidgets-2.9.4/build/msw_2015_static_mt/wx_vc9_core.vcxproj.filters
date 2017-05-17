@@ -591,6 +591,9 @@
     <ClCompile Include="..\..\src\msw\iniconf.cpp">
       <Filter>MSW Sources</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\msw\joystick.cpp">
+      <Filter>MSW Sources</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\msw\listbox.cpp">
       <Filter>MSW Sources</Filter>
     </ClCompile>
