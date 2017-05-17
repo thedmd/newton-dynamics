@@ -95,6 +95,7 @@ class NewtonDemos: public wxFrame
 	bool GetMouseKeyState (int button ) const;
 	bool GetMousePosition (int& posX, int& posY) const;
 	bool GetJoytickPosition (dFloat& posX, dFloat& posY, int& buttonsMask) const;
+	bool GetJoytickPosition (dFloat& posX, dFloat& posY, dFloat& posZ, int& buttonsMask) const;
 
 	bool IsShiftKeyDown () const;
 	bool IsControlKeyDown () const;
@@ -162,8 +163,9 @@ class NewtonDemos: public wxFrame
 	int m_debugDisplayMode;
 	int m_mousePosX;
 	int m_mousePosY;
-	int m_joytickX;
-	int m_joytickY;
+	dFloat m_joytickX;
+	dFloat m_joytickY;
+	dFloat m_joytickZ;
 	int m_joytickButtonMask;
 	int m_framesCount;
 	int m_microthreadIndex;

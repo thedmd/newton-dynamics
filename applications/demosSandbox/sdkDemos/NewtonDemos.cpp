@@ -321,8 +321,9 @@ NewtonDemos::NewtonDemos(const wxString& title, const wxPoint& pos, const wxSize
 	,m_debugDisplayMode(0)
 	,m_mousePosX(0)
 	,m_mousePosY(0)
-	,m_joytickX(0)
-	,m_joytickY(0)
+	,m_joytickX(0.0f)
+	,m_joytickY(0.0f)
+	,m_joytickZ(0.0f)
 	,m_joytickButtonMask(0)
 	,m_framesCount(0)
 	,m_microthreadIndex(0)
@@ -399,16 +400,15 @@ NewtonDemos::NewtonDemos(const wxString& title, const wxPoint& pos, const wxSize
 	m_maxY = stick.GetYMax();
 */
 
-//	fucking wxwidget require a fucking library just to read a fucking joystick fuck you WxWidget
-//	m_joystick = new wxJoystick(wxJOYSTICK1); 
-//	m_joystick->SetCapture(this, 10); 
+	m_joystick = new wxJoystick(wxJOYSTICK1); 
+	m_joystick->SetCapture(this, 10); 
 }
 
 
 NewtonDemos::~NewtonDemos()
 {
-//	m_joystick->ReleaseCapture(); 
-//	delete m_joystick;
+	m_joystick->ReleaseCapture(); 
+	delete m_joystick;
 }
 
 
@@ -681,11 +681,19 @@ bool NewtonDemos::GetMousePosition (int& posX, int& posY) const
 bool NewtonDemos::GetJoytickPosition (dFloat& posX, dFloat& posY, int& buttonsMask) const
 {
 	buttonsMask = m_joytickButtonMask;
-	posX = dFloat (m_joytickX - 32767) / 32768.0f;
-	posY = -dFloat (m_joytickY - 32767) / 32768.0f;
+	posX =  m_joytickX;
+	posY = -m_joytickY;
 	return m_hasJoysticController;
 }
 
+bool NewtonDemos::GetJoytickPosition (dFloat& posX, dFloat& posY, dFloat& posZ, int& buttonsMask) const
+{
+	buttonsMask = m_joytickButtonMask;
+	posX =  m_joytickX;
+	posY = -m_joytickY;
+	posZ = -m_joytickZ;
+	return m_hasJoysticController;
+}
 
 bool NewtonDemos::GetMouseKeyState (int button) const
 {
@@ -938,6 +946,47 @@ void NewtonDemos::OnDeserializeWorld(wxCommandEvent& event)
 
 void NewtonDemos::OnJoystickEvent(wxJoystickEvent& event)
 {
+	m_hasJoysticController = (m_joystick != NULL);
+
+	if (m_hasJoysticController) {
+		int xMin = m_joystick->GetXMin();
+		int xMax = m_joystick->GetXMax();
+		int yMin = m_joystick->GetYMin();
+		int yMax = m_joystick->GetYMax();
+
+		wxPoint position = m_joystick->GetPosition();
+		m_joytickX = (position.x - xMin) / (dFloat)(xMax - xMin) * 2.0f - 1.0f;
+		m_joytickY = (position.y - yMin) / (dFloat)(yMax - yMin) * 2.0f - 1.0f;
+
+		dFloat zNegative = 0.0f;
+		dFloat zPositive = 0.0f;
+
+		if (m_joystick->HasZ())
+		{
+			int zMin = m_joystick->GetZMin();
+			int zMax = m_joystick->GetZMax();
+
+			zPositive = (m_joystick->GetZPosition() - zMin) / (dFloat)(zMax - zMin);
+		}
+
+		if (m_joystick->HasRudder())
+		{
+			int zMin = m_joystick->GetRudderMin();
+			int zMax = m_joystick->GetRudderMax();
+
+			zNegative = (m_joystick->GetRudderPosition() - zMin) / (dFloat)(zMax - zMin);
+		}
+
+		m_joytickZ = zPositive - zNegative;
+
+		m_joytickButtonMask = m_joystick->GetButtonState();
+	}
+	else {
+		m_joytickX = 0.0f;
+		m_joytickY = 0.0f;
+		m_joytickZ = 0.0f;
+		m_joytickButtonMask = 0;
+	}
 }
 
 void NewtonDemos::OnSelectBroadPhase(wxCommandEvent& event)
