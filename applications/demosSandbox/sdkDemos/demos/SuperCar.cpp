@@ -1068,6 +1068,8 @@ class SuperCarVehicleControllerManager: public dCustomVehicleControllerManager
 		,m_nexVehicle (true)
 		,m_cameraOrigin (0.0f)
 		,m_cameraVelocity (0.0f)
+		,m_cameraAngle (0.0f)
+		,m_cameraAngleVelocity (0.0f)
 	{
 		// hook a callback for 2d help display
 		DemoEntityManager* const scene = (DemoEntityManager*) NewtonWorldGetUserData(world);
@@ -1419,27 +1421,49 @@ class SuperCarVehicleControllerManager: public dCustomVehicleControllerManager
 		}
 	}
 
-    dVector SmoothDamp(dVector current, dVector target, dVector& currentVelocity, float smoothTime, float deltaTime, float maxSpeed)
-    {
-        smoothTime = dMax(0.0001f, smoothTime);
-        const auto  num = deltaTime * 2.0f / smoothTime;
-        const auto  d = 1.0f / (1.0f + num + 0.48f * num * num + 0.235f * num * num * num);
-        auto vector = current - target;
-        auto vector2 = target;
-        auto maxLength = maxSpeed * smoothTime;
-        auto l = dSqrt(vector.DotProduct3(vector));
-        vector = vector.Scale(dMin(l, maxLength) / l);
-        target = current - vector;
-        auto vector3 = (currentVelocity + vector.Scale(num)).Scale(deltaTime);
-        currentVelocity = (currentVelocity - vector3.Scale(num)).Scale(d);
-        auto vector4 = target + (vector + vector3).Scale(d);
-        if ((vector2 - current).DotProduct3(vector4 - vector2) > 0.0f)
-        {
-            vector4 = vector2;
-            currentVelocity = (vector4 - vector2).Scale(1.0f / deltaTime);
-        }
-        return vector4;
-    }
+	dFloat SmoothDamp(dFloat current, dFloat target, dFloat& currentVelocity, dFloat smoothTime, dFloat deltaTime, dFloat maxSpeed)
+	{
+		smoothTime = dMax(0.0001f, smoothTime);
+		dFloat num = 2.0f / smoothTime;
+		dFloat num2 = num * deltaTime;
+		dFloat num3 = 1.0f / (1.0f + num2 + 0.48f * num2 * num2 + 0.235f * num2 * num2 * num2);
+		dFloat num4 = current - target;
+		dFloat num5 = target;
+		dFloat num6 = maxSpeed * smoothTime;
+		num4 = dClamp(num4, -num6, num6);
+		target = current - num4;
+		dFloat num7 = (currentVelocity + num * num4) * deltaTime;
+		currentVelocity = (currentVelocity - num * num7) * num3;
+		dFloat num8 = target + (num4 + num7) * num3;
+		if (num5 - current > 0.0f == num8 > num5)
+		{
+			num8 = num5;
+			currentVelocity = (num8 - num5) / deltaTime;
+		}
+		return num8;
+	}
+
+	dVector SmoothDamp(dVector current, dVector target, dVector& currentVelocity, float smoothTime, float deltaTime, float maxSpeed)
+	{
+		smoothTime = dMax(0.0001f, smoothTime);
+		const auto  num = deltaTime * 2.0f / smoothTime;
+		const auto  d = 1.0f / (1.0f + num + 0.48f * num * num + 0.235f * num * num * num);
+		auto vector = current - target;
+		auto vector2 = target;
+		auto maxLength = maxSpeed * smoothTime;
+		auto l = dSqrt(vector.DotProduct3(vector));
+		vector = vector.Scale(dMin(l, maxLength) / l);
+		target = current - vector;
+		auto vector3 = (currentVelocity + vector.Scale(num)).Scale(deltaTime);
+		currentVelocity = (currentVelocity - vector3.Scale(num)).Scale(d);
+		auto vector4 = target + (vector + vector3).Scale(d);
+		if ((vector2 - current).DotProduct3(vector4 - vector2) > 0.0f)
+		{
+			vector4 = vector2;
+			currentVelocity = (vector4 - vector2).Scale(1.0f / deltaTime);
+		}
+		return vector4;
+	}
 
 	void UpdateCamera (SuperCarEntity* const player, dFloat timestep)
 	{
@@ -1456,13 +1480,23 @@ class SuperCarVehicleControllerManager: public dCustomVehicleControllerManager
 			camOrigin -= frontDir.Scale(VEHICLE_THIRD_PERSON_VIEW_DIST);
 //camOrigin = dVector (-7.0f, 3.0f, 0.0f, 0.0f);
 		} else {
-            dFloat dist = 1.5;
+			dFloat dist = 1.5f;
 			//dAssert (0);
 			camMatrix = playerMatrix;
-			camOrigin = playerMatrix.TransformVector(dVector(-3.8f * dist, 1.5f * dist/*ARTICULATED_VEHICLE_CAMERA_EYEPOINT*/, 0.0f, 0.0f));
-            camMatrix = dMatrix(0.0f, 0.0f, -0.22f, dVector(0.0f, 0.0f, 0.0f)) * camMatrix;
 
-            m_cameraOrigin = SmoothDamp(m_cameraOrigin, camOrigin, m_cameraVelocity, 0.2f, timestep, FLT_MAX);
+			dFloat angle = dAtan2(playerMatrix.m_front.m_x, playerMatrix.m_front.m_z) - 3.141592f * 0.5f;// - m_cameraAngle;
+			dFloat angle2 = dMod(angle - m_cameraAngle + 3.141592f, 2.0f * 3.141592f);
+			if (angle2 < 0.0f)
+				angle2 += 2.0f * 3.141592f;
+			angle2 -= 3.141592f;
+
+			m_cameraAngle = SmoothDamp(m_cameraAngle, m_cameraAngle + angle2, m_cameraAngleVelocity, 0.2f, timestep, FLT_MAX);
+
+			camMatrix = dMatrix(0.0f, 0.0f, -0.22f, dVector(0.0f)) * dMatrix(0.0f, m_cameraAngle, 0.0f, playerMatrix.m_posit);
+
+			camOrigin = camMatrix.TransformVector(dVector(-3.8f * dist, 0.5f * dist/*ARTICULATED_VEHICLE_CAMERA_EYEPOINT*/, 0.0f, 0.0f));
+
+			m_cameraOrigin = camOrigin;//SmoothDamp(m_cameraOrigin, camOrigin, m_cameraVelocity, 0.2f, timestep, FLT_MAX);
 		}
 
 		camera->SetNextMatrix (*scene, camMatrix, m_cameraOrigin);
@@ -1581,6 +1615,8 @@ class SuperCarVehicleControllerManager: public dCustomVehicleControllerManager
 	void* m_engineSounds[16];
 	dVector m_cameraOrigin;
     dVector m_cameraVelocity;
+    dFloat m_cameraAngle;
+    dFloat m_cameraAngleVelocity;
 };
 
 
